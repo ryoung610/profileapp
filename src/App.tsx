@@ -1,88 +1,41 @@
-import type { Schema } from "../amplify/data/resource";
-import { useState, useEffect } from "react";
-import { generateClient } from "aws-amplify/data";
-import { uploadData, getUrl } from "aws-amplify/storage";
-import "./App.css";
+import { useState } from 'react';
+import { client } from './test';  // Make sure this is the correct import for your generated client
+import './App.css';
 
-const client = generateClient<Schema>();
+function App() {
+  const [message, setMessage] = useState<string>('');
 
-export default function TodoList() {
-  const [todos, setTodos] = useState<Schema["Todo"]["type"][]>([]);
-  const [todoImages, setTodoImages] = useState<{ [key: string]: string }>({});
-
-  useEffect(() => {
-    const sub = client.models.Todo.observeQuery().subscribe({
-      next: async ({ items }) => {
-        console.log("Subscription update:", items);
-        setTodos([...items]);
-
-        const imageUrls: { [key: string]: string } = {};
-        for (const todo of items) {
-          if (todo.profilePic) {
-            const { url } = await getUrl({ key: todo.profilePic });
-            imageUrls[todo.id] = url.toString();
-          }
-        }
-        setTodoImages(imageUrls);
-      },
-      error: (error) => console.error("Subscription error:", error),
-    });
-    return () => sub.unsubscribe();
-  }, []);
-
-  const createTodo = async () => {
-    const content = window.prompt("Todo content?");
-    if (!content) return;
-
+  const fetchHelloMessage = async () => {
     try {
-      const fileInput = document.createElement("input");
-      fileInput.type = "file";
-      fileInput.accept = "image/*";
-      fileInput.onchange = async (event: Event) => { // Explicitly type the event
-        const target = event.target as HTMLInputElement; // Cast to HTMLInputElement
-        const file = target.files?.[0];
-        if (!file) return;
+      const response = await client.graphql({
+        query: `query SayHello($name: String!) {
+          sayHello(name: $name)
+        }`,
+        variables: { name: 'Bobby' }, // Pass the name argument here
+      });
 
-        const s3Key = `profile-pics/${Date.now()}-${file.name}`;
-        await uploadData({
-          key: s3Key,
-          data: file,
-          options: { contentType: file.type },
-        }).result;
+      // Check the structure of the response object
+      console.log('Response:', response);
 
-        const result = await client.models.Todo.create({
-          content,
-          isDone: false,
-          profilePic: s3Key,
-        });
-        console.log("Todo created:", result);
-      };
-      fileInput.click();
+      // Ensure we correctly extract the response
+      if ('data' in response && response.data?.sayHello) {
+        setMessage(response.data.sayHello);
+      } else {
+        setMessage('No message returned or error in the response');
+      }
     } catch (error) {
-      console.error("Error uploading or creating todo:", error);
+      console.error('Error:', error);
+      setMessage('Error occurred while invoking Lambda');
     }
   };
 
   return (
-    <div className="todos">
-      <button onClick={createTodo}>Add new todo</button>
-      <ul>
-        {todos.length === 0 ? (
-          <li>No todos yet</li>
-        ) : (
-          todos.map(({ id, content, profilePic }) => (
-            <li key={id} className="todo-item">
-              <img
-                src={todoImages[id] || "https://via.placeholder.com/50"}
-                alt="Profile"
-                className="profile-pic"
-                onError={(e) =>((e.target as HTMLImageElement).src = "https://via.placeholder.com/50")}
-              />
-              <span>{content}</span>
-            </li>
-          ))
-        )}
-      </ul>
+    <div className='todos'>
+      <h1>Amplify Gen 2 Hello</h1>
+      <p>Message: {message}</p>
+      <button onClick={fetchHelloMessage}>Say Hello</button>
     </div>
   );
 }
+
+export default App;

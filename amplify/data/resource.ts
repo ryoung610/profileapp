@@ -1,22 +1,24 @@
 import { a, defineData, type ClientSchema } from '@aws-amplify/backend';
+import { sayHello } from "../functions/say-hello/resource"
+
 
 const schema = a.schema({
-  Todo: a.model({
-      content: a.string(),
-      isDone: a.boolean(),
-      profilePic: a.string(),
+   
+  sayHello: a
+    .query()
+    .arguments({
+      name: a.string(),
     })
-    .authorization(allow => [allow.publicApiKey()])
+    .returns(a.string())
+    .authorization(allow => [allow.guest()])
+    .handler(a.handler.function(sayHello)),
 });
 
-// Used for code completion / highlighting when making requests from frontend
 export type Schema = ClientSchema<typeof schema>;
 
-// defines the data resource to be deployed
 export const data = defineData({
   schema,
   authorizationModes: {
-    defaultAuthorizationMode: 'apiKey',
-    apiKeyAuthorizationMode: { expiresInDays: 30 }
-  }
+    defaultAuthorizationMode: "iam",
+  },
 });
